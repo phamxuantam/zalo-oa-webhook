@@ -2,22 +2,20 @@ export default async function handler(req, res) {
   console.log('=== NHẬN REQUEST TỪ ZALO ===');
   console.log('Body đầy đủ:', JSON.stringify(req.body, null, 2));
 
-  // Xử lý challenge
   if (req.query?.challenge || req.body?.challenge) {
     console.log('✅ Xử lý challenge OK');
     return res.status(200).send(req.query?.challenge || req.body.challenge);
   }
 
-  // Xử lý follow
   if (req.method === 'POST' && req.body?.event_name === 'follow' && req.body?.follower?.id) {
     const userId = req.body.follower.id;
     console.log('✅ ĐÃ NHẬN FOLLOW - UID:', userId);
 
     const userInfo = await getZaloUserInfo(userId);
-
+    
     if (userInfo) {
       console.log('📋 UserInfo trả về từ Zalo:', JSON.stringify(userInfo, null, 2));
-
+      
       if (userInfo.phone) {
         let phone = String(userInfo.phone).replace(/\D/g, '');
         if (phone.startsWith('84')) phone = phone.substring(2);
@@ -25,7 +23,7 @@ export default async function handler(req, res) {
         console.log('📱 Phone sau khi làm sạch:', phone);
         await updateGoogleSheet(phone, userId);
       } else {
-        console.log('⚠️ KHÔNG CÓ PHONE trong UserInfo (Zalo không trả về số điện thoại)');
+        console.log('⚠️ UserInfo KHÔNG CÓ PHONE (Zalo không trả số điện thoại)');
       }
     } else {
       console.log('⚠️ Không lấy được userInfo từ Zalo');
@@ -39,6 +37,7 @@ async function getZaloUserInfo(userId) {
   const url = `https://openapi.zalo.me/v2.0/oa/user/detail?user_id=${userId}`;
   const res = await fetch(url, { headers: { access_token: process.env.ZALO_ACCESS_TOKEN } });
   const json = await res.json();
+  console.log('Raw UserInfo JSON từ Zalo:', JSON.stringify(json, null, 2));
   return json.error === 0 ? json.data : null;
 }
 
@@ -68,9 +67,8 @@ async function updateGoogleSheet(phone, uid) {
     let cellPhone = String(rows[i][0] || '').replace(/\D/g, '');
     if (cellPhone.startsWith('84')) cellPhone = cellPhone.substring(2);
     if (cellPhone.startsWith('0')) cellPhone = cellPhone.substring(1);
-    
     console.log(`Dòng ${i+1}: Phone trong Sheet = ${cellPhone}`);
-
+    
     if (cellPhone === phone) {
       rowIndex = i;
       break;
