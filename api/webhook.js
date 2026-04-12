@@ -1,43 +1,43 @@
-
 export default async function handler(req, res) {
-  // Xử lý verification (challenge) của Zalo - cả GET và POST
+  console.log('=== NHẬN REQUEST TỪ ZALO ===');
+  console.log('Method:', req.method);
+  console.log('Body:', JSON.stringify(req.body, null, 2));
+
+  // Xử lý challenge (verification)
   if (req.query && req.query.challenge) {
+    console.log('✅ Xử lý challenge GET');
     return res.status(200).send(req.query.challenge);
   }
   if (req.body && req.body.challenge) {
+    console.log('✅ Xử lý challenge POST');
     return res.status(200).send(req.body.challenge);
   }
 
-  // Nếu là POST bình thường (event follow)
-  if (req.method === 'POST') {
-    try {
-      const payload = req.body;
-      if (payload.event === 'follow' && payload.user_id) {
-        const userId = payload.user_id;
-        console.log('✅ Follow event - UID:', userId);
+  // Xử lý event follow
+  if (req.method === 'POST' && req.body && req.body.event === 'follow' && req.body.user_id) {
+    const userId = req.body.user_id;
+    console.log('✅ Follow event - UID:', userId);
 
-        const userInfo = await getZaloUserInfo(userId);
-        if (userInfo && userInfo.phone) {
-          const phone = String(userInfo.phone).replace(/\D/g, '');
-          console.log('📱 Phone:', phone);
-          await updateGoogleSheet(phone, userId);
-        }
-      }
-      return res.status(200).send('OK');
-    } catch (error) {
-      console.error(error);
-      return res.status(500).send('Error');
+    const userInfo = await getZaloUserInfo(userId);
+    if (userInfo && userInfo.phone) {
+      const phone = String(userInfo.phone).replace(/\D/g, '');
+      console.log('📱 Phone từ Zalo:', phone);
+      await updateGoogleSheet(phone, userId);
+    } else {
+      console.log('⚠️ Không lấy được phone từ userInfo');
     }
+  } else {
+    console.log('ℹ️ Không phải event follow hoặc payload không đúng');
   }
 
   return res.status(200).send('OK');
 }
 
-// Các hàm còn lại giữ nguyên (getZaloUserInfo + updateGoogleSheet)
 async function getZaloUserInfo(userId) {
   const url = `https://openapi.zalo.me/v2.0/oa/user/detail?user_id=${userId}`;
   const res = await fetch(url, { headers: { access_token: process.env.ZALO_ACCESS_TOKEN } });
   const json = await res.json();
+  console.log('UserInfo từ Zalo:', JSON.stringify(json, null, 2));
   return json.error === 0 ? json.data : null;
 }
 
@@ -77,8 +77,8 @@ async function updateGoogleSheet(phone, uid) {
       valueInputOption: 'RAW',
       resource: { values: [[uid]] },
     });
-    console.log(`✅ Cập nhật UID ${uid} cho số ${phone} tại dòng ${rowIndex + 1}`);
+    console.log(`✅ ĐÃ CẬP NHẬT UID ${uid} cho số ${phone} tại dòng ${rowIndex + 1}`);
   } else {
-    console.log(`⚠️ Không tìm thấy số ${phone}`);
+    console.log(`⚠️ Không tìm thấy số điện thoại ${phone} trong Sheet`);
   }
 }
