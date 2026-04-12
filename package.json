@@ -1,0 +1,10 @@
+{
+  "name": "zalo-oa-webhook",
+  "version": "1.0.0",
+  "dependencies": {
+    "@googleapis/sheets": "^9.0.0"
+  },
+  "scripts": {
+    "start": "node api/webhook.js"
+  }
+}
