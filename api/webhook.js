@@ -1,33 +1,35 @@
 export default async function handler(req, res) {
   console.log('=== NHẬN REQUEST TỪ ZALO ===');
-  console.log('Method:', req.method);
   console.log('Body:', JSON.stringify(req.body, null, 2));
 
-  // Xử lý challenge (Zalo verify)
-  if (req.query?.challenge) {
-    console.log('✅ Xử lý challenge GET');
-    return res.status(200).send(req.query.challenge);
-  }
-  if (req.body?.challenge) {
-    console.log('✅ Xử lý challenge POST');
-    return res.status(200).send(req.body.challenge);
+  if (req.query?.challenge || (req.body && req.body.challenge)) {
+    const challenge = req.query?.challenge || req.body.challenge;
+    console.log('✅ Xử lý challenge');
+    return res.status(200).send(challenge);
   }
 
-  // Xử lý event follow MỚI của Zalo
+  // Xử lý follow mới của Zalo
   if (req.method === 'POST' && req.body?.event_name === 'follow' && req.body?.follower?.id) {
     const userId = req.body.follower.id;
     console.log('✅ Follow event - UID:', userId);
 
     const userInfo = await getZaloUserInfo(userId);
-    if (userInfo && userInfo.phone) {
-      const phone = String(userInfo.phone).replace(/\D/g, '');
-      console.log('📱 Phone từ Zalo:', phone);
-      await updateGoogleSheet(phone, userId);
-    } else {
-      console.log('⚠️ Không lấy được phone từ userInfo');
+    
+    if (userInfo) {
+      console.log('📋 UserInfo đầy đủ:', JSON.stringify(userInfo, null, 2));
+      
+      if (userInfo.phone) {
+        let phone = String(userInfo.phone).replace(/\D/g, '');
+        // Làm sạch thêm để khớp tốt hơn
+        if (phone.startsWith('84')) phone = phone.substring(2);
+        if (phone.startsWith('0')) phone = phone.substring(1);
+        console.log('📱 Phone sau khi làm sạch:', phone);
+        
+        await updateGoogleSheet(phone, userId);
+      } else {
+        console.log('⚠️ UserInfo không có phone (người dùng chưa cấp quyền)');
+      }
     }
-  } else {
-    console.log('ℹ️ Không phải event follow hoặc payload không đúng');
   }
 
   return res.status(200).send('OK');
@@ -37,7 +39,6 @@ async function getZaloUserInfo(userId) {
   const url = `https://openapi.zalo.me/v2.0/oa/user/detail?user_id=${userId}`;
   const res = await fetch(url, { headers: { access_token: process.env.ZALO_ACCESS_TOKEN } });
   const json = await res.json();
-  console.log('UserInfo từ Zalo:', JSON.stringify(json, null, 2));
   return json.error === 0 ? json.data : null;
 }
 
@@ -62,7 +63,10 @@ async function updateGoogleSheet(phone, uid) {
   let rowIndex = -1;
 
   for (let i = 0; i < rows.length; i++) {
-    const cellPhone = String(rows[i][0] || '').replace(/\D/g, '');
+    let cellPhone = String(rows[i][0] || '').replace(/\D/g, '');
+    if (cellPhone.startsWith('84')) cellPhone = cellPhone.substring(2);
+    if (cellPhone.startsWith('0')) cellPhone = cellPhone.substring(1);
+    
     if (cellPhone === phone) {
       rowIndex = i;
       break;
