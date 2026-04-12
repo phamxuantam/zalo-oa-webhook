@@ -3,19 +3,19 @@ export default async function handler(req, res) {
   console.log('Method:', req.method);
   console.log('Body:', JSON.stringify(req.body, null, 2));
 
-  // Xử lý challenge (verification)
-  if (req.query && req.query.challenge) {
+  // Xử lý challenge (Zalo verify)
+  if (req.query?.challenge) {
     console.log('✅ Xử lý challenge GET');
     return res.status(200).send(req.query.challenge);
   }
-  if (req.body && req.body.challenge) {
+  if (req.body?.challenge) {
     console.log('✅ Xử lý challenge POST');
     return res.status(200).send(req.body.challenge);
   }
 
-  // Xử lý event follow
-  if (req.method === 'POST' && req.body && req.body.event === 'follow' && req.body.user_id) {
-    const userId = req.body.user_id;
+  // Xử lý event follow MỚI của Zalo
+  if (req.method === 'POST' && req.body?.event_name === 'follow' && req.body?.follower?.id) {
+    const userId = req.body.follower.id;
     console.log('✅ Follow event - UID:', userId);
 
     const userInfo = await getZaloUserInfo(userId);
